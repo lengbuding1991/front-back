@@ -261,7 +261,7 @@ export default {
   name: 'ChatArea',
   props: {
     currentChatId: {
-      type: Number,
+      type: String,
       default: null
     },
     messages: {

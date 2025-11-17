@@ -39,8 +39,17 @@
       </div>
       
       <div class="space-y-1" v-if="!isSidebarCollapsed">
-        <div class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 px-3">
-          最近对话
+        <div class="flex items-center justify-between mb-2 px-3">
+          <div class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+            最近对话
+          </div>
+          <button
+            @click="$emit('refresh-chats')"
+            class="text-xs text-gray-500 hover:text-primary dark:text-gray-400 dark:hover:text-primary transition-colors"
+            title="刷新对话列表"
+          >
+            <i class="fas fa-sync-alt"></i>
+          </button>
         </div>
         
         <!-- 对话项 -->
@@ -66,6 +75,23 @@
             title="删除对话"
           >
             <i class="fas fa-trash-alt"></i>
+          </button>
+        </div>
+        
+        <!-- 加载更多按钮 -->
+        <div v-if="pagination.hasMore && !isSidebarCollapsed" class="mt-2">
+          <button
+            @click="$emit('load-more-chats')"
+            :disabled="pagination.isLoading"
+            :class="[
+              'w-full flex items-center justify-center space-x-2 py-2 px-4 rounded-lg transition-bg font-medium',
+              pagination.isLoading 
+                ? 'bg-gray-200 text-gray-500 cursor-not-allowed' 
+                : 'bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-dark-hover dark:hover:bg-dark-card dark:text-gray-300'
+            ]"
+          >
+            <i v-if="pagination.isLoading" class="fas fa-spinner fa-spin"></i>
+            <span v-else>加载更多</span>
           </button>
         </div>
       </div>
@@ -181,6 +207,17 @@ export default {
     selectedChatId: {
       type: Number,
       default: 1
+    },
+    // 分页相关props
+    pagination: {
+      type: Object,
+      default: () => ({
+        currentPage: 1,
+        pageSize: 10,
+        totalChats: 0,
+        hasMore: false,
+        isLoading: false
+      })
     }
   },
   emits: [
@@ -193,7 +230,9 @@ export default {
     'show-settings',
     'show-help',
     'toggle-theme',
-    'logout'
+    'logout',
+    'refresh-chats',
+    'load-more-chats'
   ]
 }
 </script>

@@ -84,7 +84,23 @@ export const chatAPI = {
   
   // 创建新对话
   createNewChat: () => {
-    return api.post('/chat/new');
+    // 从localStorage获取用户信息
+    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+    return api.post('/chat/new', { user_id: userInfo.id });
+  },
+  
+  // 获取用户的所有对话
+  getUserChats: (userId) => {
+    return api.get(`/auth/chats/${userId}`);
+  },
+  
+  // 获取用户的分页对话列表
+  getUserChatsPaginated: (userId, page = 1, pageSize = 10) => {
+    return api.post('/auth/chats', { 
+      user_id: userId, 
+      page: page, 
+      page_size: pageSize 
+    });
   },
   
   // 删除对话
