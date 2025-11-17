@@ -1,0 +1,31 @@
+{
+  "project_name": "deepseek-chat-app",
+  "domain": "deepseek.lbuding.com",
+  "backend": {
+    "port": 8000,
+    "python_version": "3.11+",
+    "requirements": "backend/requirements.txt",
+    "start_command": "source venv/bin/activate && ENVIRONMENT=production python3 run.py",
+    "process_name": "deepseek-backend"
+  },
+  "frontend": {
+    "build_command": "npm run build",
+    "dist_folder": "frontend/dist",
+    "nginx_config": {
+      "root": "/www/wwwroot/deepseek.lbuding.com",
+      "proxy_pass": "http://127.0.0.1:8000",
+      "static_files": ["css", "js", "images", "fonts"]
+    }
+  },
+  "database": {
+    "type": "supabase",
+    "url_env": "SUPABASE_URL",
+    "key_env": "SUPABASE_KEY"
+  },
+  "services": {
+    "dashscope": {
+      "api_key_env": "DASHSCOPE_API_KEY",
+      "app_id_env": "DASHSCOPE_APP_ID"
+    }
+  }
+}

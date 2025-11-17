@@ -8,6 +8,18 @@ export default defineConfig({
     host: true
   },
   build: {
-    assetsDir: 'assets'
-  }
+    assetsDir: 'assets',
+    outDir: 'dist',
+    sourcemap: false,
+    minify: 'terser',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['vue'],
+          ui: ['@fortawesome/fontawesome-free']
+        }
+      }
+    }
+  },
+  base: '/'
 })
