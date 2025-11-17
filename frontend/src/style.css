@@ -1,0 +1,45 @@
+@import '@fortawesome/fontawesome-free/css/all.min.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+    .content-auto {
+        content-visibility: auto;
+    }
+    .scrollbar-hide {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+    .scrollbar-hide::-webkit-scrollbar {
+        display: none;
+    }
+    .text-shadow {
+        text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+    .transition-bg {
+        transition: background-color 0.2s ease-in-out;
+    }
+    .transition-all-300 {
+        transition: all 0.3s ease;
+    }
+    
+    /* 自定义滚动条样式 */
+    .scrollbar-thin::-webkit-scrollbar {
+        width: 6px;
+    }
+    .scrollbar-thumb-gray-300::-webkit-scrollbar-thumb {
+        background-color: #d1d5db;
+        border-radius: 10px;
+    }
+    .dark .scrollbar-thumb-gray-600::-webkit-scrollbar-thumb {
+        background-color: #4b5563;
+    }
+    .scrollbar-track-transparent::-webkit-scrollbar-track {
+        background-color: transparent;
+    }
+    .scrollbar-thumb-rounded-full::-webkit-scrollbar-thumb {
+        border-radius: 10px;
+    }
+}

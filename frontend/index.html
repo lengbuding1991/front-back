@@ -4,75 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>DeepSeek Chat</title>
-    <link
-      href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.0/css/all.min.css"
-      rel="stylesheet"
-    />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        darkMode: 'class',
-        theme: {
-          extend: {
-            colors: {
-              primary: '#165DFF',
-              secondary: '#6B7280',
-              dark: '#1E293B',
-              light: '#F8FAFC',
-              'dark-bg': '#0F172A',
-              'dark-card': '#1E293B',
-              'dark-input': '#1E293B',
-              'dark-hover': '#334155',
-              'light-hover': '#F1F5F9'
-            },
-            fontFamily: {
-              inter: ['Inter', 'system-ui', 'sans-serif']
-            }
-          }
-        }
-      };
-    </script>
-    <style type="text/tailwindcss">
-      @layer utilities {
-          .content-auto {
-              content-visibility: auto;
-          }
-          .scrollbar-hide {
-              -ms-overflow-style: none;
-              scrollbar-width: none;
-          }
-          .scrollbar-hide::-webkit-scrollbar {
-              display: none;
-          }
-          .text-shadow {
-              text-shadow: 0 1px 2px rgba(0,0,0,0.1);
-          }
-          .transition-bg {
-              transition: background-color 0.2s ease-in-out;
-          }
-          .transition-all-300 {
-              transition: all 0.3s ease;
-          }
-          
-          /* 自定义滚动条样式 */
-          .scrollbar-thin::-webkit-scrollbar {
-              width: 6px;
-          }
-          .scrollbar-thumb-gray-300::-webkit-scrollbar-thumb {
-              background-color: #d1d5db;
-              border-radius: 10px;
-          }
-          .dark .scrollbar-thumb-gray-600::-webkit-scrollbar-thumb {
-              background-color: #4b5563;
-          }
-          .scrollbar-track-transparent::-webkit-scrollbar-track {
-              background-color: transparent;
-          }
-          .scrollbar-thumb-rounded-full::-webkit-scrollbar-thumb {
-              border-radius: 10px;
-          }
-      }
-    </style>
+
   </head>
   <body>
     <div id="app"></div>
