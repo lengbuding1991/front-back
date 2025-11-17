@@ -209,6 +209,8 @@
 </template>
 
 <script>
+import { authAPI } from '../services/api'
+
 export default {
   name: 'LoginModal',
   props: {
@@ -244,28 +246,20 @@ export default {
 
       this.isLoading = true
       try {
-        // 调用后端登录API
-        const response = await fetch('http://localhost:8000/api/auth/login', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            identifier: this.loginForm.identifier,
-            password: this.loginForm.password,
-            remember_me: this.loginForm.rememberMe
-          })
+        // 使用API服务登录
+        const response = await authAPI.login({
+          identifier: this.loginForm.identifier,
+          password: this.loginForm.password,
+          remember_me: this.loginForm.rememberMe
         })
         
-        const data = await response.json()
-        
-        if (data.success) {
+        if (response.success) {
           // 登录成功，传递正确的用户信息
-          this.$emit('login-success', data.user)
+          this.$emit('login-success', response.user)
           this.$emit('close-modal')
           this.resetForms()
         } else {
-          this.$emit('show-error', data.message || '登录失败')
+          this.$emit('show-error', response.message || '登录失败')
         }
       } catch (error) {
         console.error('登录请求失败:', error)
@@ -293,30 +287,22 @@ export default {
 
       this.isLoading = true
       try {
-        // 调用后端注册API
-        const response = await fetch('http://localhost:8000/api/auth/register', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            username: this.registerForm.username,
-            email: this.registerForm.email,
-            password: this.registerForm.password,
-            confirm_password: this.registerForm.confirmPassword,
-            agree_terms: this.registerForm.agreeTerms
-          })
+        // 使用API服务注册
+        const response = await authAPI.register({
+          username: this.registerForm.username,
+          email: this.registerForm.email,
+          password: this.registerForm.password,
+          confirm_password: this.registerForm.confirmPassword,
+          agree_terms: this.registerForm.agreeTerms
         })
         
-        const data = await response.json()
-        
-        if (data.success) {
+        if (response.success) {
           // 注册成功，切换到登录模式
           this.isLoginMode = true
           this.$emit('show-success', '注册成功，请登录')
           this.resetForms()
         } else {
-          this.$emit('show-error', data.message || '注册失败')
+          this.$emit('show-error', response.message || '注册失败')
         }
       } catch (error) {
         console.error('注册请求失败:', error)

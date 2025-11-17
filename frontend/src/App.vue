@@ -75,6 +75,7 @@ import Sidebar from './components/Sidebar.vue'
 import ChatArea from './components/ChatArea.vue'
 import LoginModal from './components/LoginModal.vue'
 import { useToast } from './composables/useToast'
+import { authAPI, chatAPI } from './services/api'
 
 export default {
   name: 'App',
@@ -132,6 +133,8 @@ export default {
         }
       ],
       currentMessages: [],
+      // 消息缓存：存储每个对话的消息
+      messagesCache: {},
       isLoading: false,
       inputMessage: '',
       
@@ -181,7 +184,7 @@ export default {
       if (!this.isLoggedIn) {
         this.showLoginModal = true
         this.toast.info('请先登录后再创建新对话')
-        return
+        return null
       }
       
       const newChatId = Date.now()
@@ -207,7 +210,11 @@ export default {
       })
       this.selectedChatId = newChatId
       this.currentMessages = []
+      // 初始化新对话的消息缓存
+      this.messagesCache[newChatId] = []
       this.toast.info('已创建新对话')
+      
+      return newChatId
     },
     
     selectChat(chatId) {
@@ -219,14 +226,25 @@ export default {
       }
       
       this.selectedChatId = chatId
-      // 模拟加载聊天记录
-      this.loadChatMessages(chatId)
+      
+      // 检查消息缓存中是否有该对话的消息
+      if (this.messagesCache[chatId]) {
+        // 从缓存中加载消息
+        this.currentMessages = this.messagesCache[chatId]
+      } else {
+        // 从API加载消息并缓存
+        this.loadChatMessages(chatId)
+      }
     },
     
     deleteChat(chatId) {
       const index = this.recentChats.findIndex(chat => chat.id === chatId)
       if (index !== -1) {
         this.recentChats.splice(index, 1)
+        
+        // 清理消息缓存
+        delete this.messagesCache[chatId]
+        
         if (this.selectedChatId === chatId) {
           this.selectedChatId = this.recentChats.length > 0 ? this.recentChats[0].id : null
           this.currentMessages = []
@@ -237,18 +255,21 @@ export default {
     
     async loadChatMessages(chatId) {
       try {
-        // 调用后端API获取聊天历史
-        const response = await fetch(`http://localhost:8000/api/chat/history/${chatId}`)
-        const data = await response.json()
+        // 使用API服务获取聊天历史
+        const response = await chatAPI.getChatMessages(chatId)
         
-        if (data.success) {
-          this.currentMessages = data.messages || []
+        if (response.success) {
+          this.currentMessages = response.messages || []
+          // 将消息存入缓存
+          this.messagesCache[chatId] = this.currentMessages
         } else {
           this.currentMessages = []
+          this.messagesCache[chatId] = []
         }
       } catch (error) {
         console.error('获取聊天历史失败:', error)
         this.currentMessages = []
+        this.messagesCache[chatId] = []
       }
     },
     
@@ -263,6 +284,13 @@ export default {
         return
       }
       
+      // 如果没有选择对话，自动创建新对话
+      if (!this.selectedChatId) {
+        const newChatId = this.newChat()
+        // 如果创建对话失败（比如用户未登录），则停止发送消息
+        if (!newChatId) return
+      }
+      
       // 添加用户消息
       const userMessage = {
         id: Date.now(),
@@ -275,31 +303,28 @@ export default {
       // 清空输入框
       this.inputMessage = ''
       
-      // 调用后端API发送消息
+      // 使用API服务发送消息
       this.isLoading = true
       try {
-        const response = await fetch('http://localhost:8000/api/chat/send', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            message: content.trim(),
-            chat_id: this.selectedChatId?.toString()
-          })
+        const response = await chatAPI.sendMessage({
+          message: content.trim(),
+          chat_id: this.selectedChatId?.toString()
         })
         
-        const data = await response.json()
-        
-        if (data.success && data.response) {
+        if (response.success && response.response) {
           // 添加AI回复消息
           const aiMessage = {
-            id: data.response.id,
-            role: data.response.role,
-            content: data.response.content,
-            timestamp: data.response.timestamp
+            id: response.response.id,
+            role: response.response.role,
+            content: response.response.content,
+            timestamp: response.response.timestamp
           }
           this.currentMessages.push(aiMessage)
+          
+          // 更新消息缓存
+          if (this.selectedChatId) {
+            this.messagesCache[this.selectedChatId] = this.currentMessages
+          }
           
           // 更新对话标题
           if (this.selectedChatId && this.currentMessages.length === 2) {
@@ -309,7 +334,7 @@ export default {
             }
           }
         } else {
-          this.toast.error(data.message || '发送消息失败')
+          this.toast.error(response.message || '发送消息失败')
         }
       } catch (error) {
         console.error('发送消息请求失败:', error)
