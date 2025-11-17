@@ -197,12 +197,16 @@ export default {
         return null
       }
       
-      // 在前端生成临时对话ID（使用UUID格式）
-      const generateTempChatId = () => {
-        return 'temp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9)
+      // 生成真正的UUID格式ID
+      const generateUUID = () => {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+          const r = Math.random() * 16 | 0
+          const v = c === 'x' ? r : (r & 0x3 | 0x8)
+          return v.toString(16)
+        })
       }
       
-      const newChatId = generateTempChatId()
+      const newChatId = generateUUID()
       
       // 随机颜色配置
       const colorConfigs = [
@@ -224,7 +228,8 @@ export default {
         time: '刚刚',
         color: randomConfig.color,
         iconColor: randomConfig.iconColor,
-        isTemp: true // 标记为临时对话
+        isTemp: true, // 标记为临时对话
+        tempId: `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` // 添加临时标识符用于调试
       }
       
       // 添加到对话列表开头
@@ -273,30 +278,59 @@ export default {
       }
     },
     
-    deleteChat(chatId) {
+    async deleteChat(chatId) {
       const index = this.recentChats.findIndex(chat => chat.id === chatId)
       if (index !== -1) {
         const chat = this.recentChats[index]
         
-        // 如果是临时对话，直接删除
-        if (chat.isTemp) {
-          this.recentChats.splice(index, 1)
-          
-          // 清理消息缓存
-          delete this.messagesCache[chatId]
-          
-          if (this.selectedChatId === chatId) {
-            this.selectedChatId = this.recentChats.length > 0 ? this.recentChats[0].id : null
-            this.currentMessages = []
+        try {
+          // 如果是临时对话，直接删除
+          if (chat.isTemp) {
+            this.recentChats.splice(index, 1)
+            
+            // 清理消息缓存
+            delete this.messagesCache[chatId]
+            
+            if (this.selectedChatId === chatId) {
+              this.selectedChatId = this.recentChats.length > 0 ? this.recentChats[0].id : null
+              this.currentMessages = []
+            }
+            
+            // 保存更新后的对话状态到本地存储
+            this.saveTempChats()
+            
+            this.toast.success('对话已删除')
+          } else {
+            // 如果是已保存的对话，调用后端API删除
+            this.loading = true
+            const response = await chatAPI.deleteChat(chatId)
+            
+            if (response.success) {
+              // 从本地列表中删除
+              this.recentChats.splice(index, 1)
+              
+              // 清理消息缓存
+              delete this.messagesCache[chatId]
+              
+              // 如果删除的是当前选中的对话，选择第一个对话
+              if (this.selectedChatId === chatId) {
+                this.selectedChatId = this.recentChats.length > 0 ? this.recentChats[0].id : null
+                this.currentMessages = []
+              }
+              
+              // 重新从服务器加载对话列表，确保数据同步
+              await this.loadUserChats(false, true)
+              
+              this.toast.success('对话已删除')
+            } else {
+              this.toast.error(response.message || '删除对话失败')
+            }
           }
-          
-          // 保存更新后的对话状态到本地存储
-          this.saveTempChats()
-          
-          this.toast.success('对话已删除')
-        } else {
-          // TODO: 如果是已保存的对话，需要调用后端API删除
-          this.toast.info('删除已保存对话功能开发中')
+        } catch (error) {
+          console.error('删除对话失败:', error)
+          this.toast.error('删除对话失败，请稍后重试')
+        } finally {
+          this.loading = false
         }
       }
     },
@@ -322,7 +356,7 @@ export default {
     },
     
     // 加载用户的所有对话（分页版本）
-    async loadUserChats(loadMore = false) {
+    async loadUserChats(loadMore = false, forceRefresh = false) {
       if (!this.isLoggedIn || !this.userInfo?.id) {
         return
       }
@@ -338,8 +372,8 @@ export default {
       // 确定要加载的页码
       const targetPage = loadMore ? this.pagination.currentPage + 1 : 1
       
-      // 检查是否有缓存（仅第一页使用缓存）
-      if (!loadMore) {
+      // 检查是否有缓存（仅第一页使用缓存，且在非强制刷新时）
+      if (!loadMore && !forceRefresh) {
         const cacheKey = `userChats_${this.userInfo.id}_page_${targetPage}`
         const cachedChats = localStorage.getItem(cacheKey)
         const cacheTime = localStorage.getItem(`${cacheKey}_time`)
@@ -357,6 +391,13 @@ export default {
         }
       }
       
+      // 如果是强制刷新，清除缓存
+      if (forceRefresh && !loadMore) {
+        const cacheKey = `userChats_${this.userInfo.id}_page_${targetPage}`
+        localStorage.removeItem(cacheKey)
+        localStorage.removeItem(`${cacheKey}_time`)
+      }
+      
       try {
         const response = await chatAPI.getUserChatsPaginated(
           this.userInfo.id, 
@@ -365,8 +406,8 @@ export default {
         )
         
         if (response.success && response.chats) {
-          // 缓存服务器返回的对话数据（仅第一页缓存）
-          if (!loadMore) {
+          // 缓存服务器返回的对话数据（仅第一页缓存，且在非强制刷新时）
+          if (!loadMore && !forceRefresh) {
             const cacheKey = `userChats_${this.userInfo.id}_page_${targetPage}`
             localStorage.setItem(cacheKey, JSON.stringify(response.chats))
             localStorage.setItem(`${cacheKey}_time`, Date.now().toString())
@@ -539,6 +580,138 @@ export default {
         return `${diffDays}天前`
       } else {
         return date.toLocaleDateString()
+      }
+    },
+    
+    // 发送消息
+    async sendMessage(message) {
+      console.log('开始发送消息:', message)
+      
+      if (!this.isLoggedIn) {
+        console.log('用户未登录，显示登录模态框')
+        this.showLoginModal = true
+        this.toast.info('请先登录后再发送消息')
+        return
+      }
+      
+      if (!message || !message.trim()) {
+        console.log('消息为空，返回')
+        this.toast.error('消息不能为空')
+        return
+      }
+      
+      // 如果没有选中的对话，创建新对话
+      if (!this.selectedChatId) {
+        console.log('没有选中对话，创建新对话')
+        await this.newChat()
+      }
+      
+      console.log('当前选中的对话ID:', this.selectedChatId)
+      
+      // 设置加载状态
+      this.isLoading = true
+      
+      try {
+        // 创建用户消息
+        const userMessage = {
+          id: Date.now().toString(),
+          content: message.trim(),
+          role: 'user',
+          timestamp: new Date().toISOString()
+        }
+        
+        console.log('创建用户消息:', userMessage)
+        
+        // 添加到当前消息列表
+        this.currentMessages = [...this.currentMessages, userMessage]
+        this.messagesCache[this.selectedChatId] = this.currentMessages
+        
+        // 准备发送给后端的数据
+        const requestData = {
+          message: message.trim(),
+          chat_id: this.selectedChatId,
+          user_id: this.userInfo.id
+        }
+        
+        console.log('发送API请求，数据:', requestData)
+        
+        // 调用API发送消息
+        const response = await chatAPI.sendMessage(requestData)
+        
+        console.log('收到API响应:', response)
+        
+        if (response.success) {
+          console.log('消息发送成功')
+          
+          // 添加AI回复到消息列表
+          if (response.response) {
+            const aiMessage = {
+              id: response.response.id,
+              content: response.response.content,
+              role: response.response.role,
+              timestamp: new Date(response.response.timestamp).toISOString()
+            }
+            console.log('添加AI回复:', aiMessage)
+            this.currentMessages = [...this.currentMessages, aiMessage]
+            this.messagesCache[this.selectedChatId] = this.currentMessages
+          }
+          
+          // 如果是临时对话且服务器返回了新的chat_id，更新对话ID
+          const currentChat = this.recentChats.find(chat => chat.id === this.selectedChatId)
+          if (currentChat && currentChat.isTemp && response.chat_id) {
+            console.log('更新临时对话ID:', this.selectedChatId, '->', response.chat_id)
+            const oldChatId = this.selectedChatId
+            this.selectedChatId = response.chat_id
+            
+            // 更新对话列表中的ID
+            const chatIndex = this.recentChats.findIndex(chat => chat.id === oldChatId)
+            if (chatIndex !== -1) {
+              this.recentChats[chatIndex].id = response.chat_id
+              this.recentChats[chatIndex].isTemp = false
+            }
+            
+            // 更新消息缓存
+            this.messagesCache[response.chat_id] = this.currentMessages
+            delete this.messagesCache[oldChatId]
+            
+            // 保存临时对话状态
+            this.saveTempChats()
+          }
+          
+          // 刷新对话列表以获取最新的标题（特别是新对话的第一条消息）
+          if (this.isLoggedIn && this.userInfo?.id) {
+            try {
+              const refreshResponse = await chatAPI.getUserChatsPaginated(
+                this.userInfo.id, 
+                1, 
+                this.pagination.pageSize
+              )
+              
+              if (refreshResponse.success && refreshResponse.chats) {
+                // 更新缓存（仅第一页）
+                const cacheKey = `userChats_${this.userInfo.id}_page_1`
+                localStorage.setItem(cacheKey, JSON.stringify(refreshResponse.chats))
+                localStorage.setItem(`${cacheKey}_time`, Date.now().toString())
+                
+                // 更新对话列表，保持当前选中的对话
+                const currentSelectedId = this.selectedChatId
+                this.mergeChatsWithServerData(refreshResponse.chats, 1, false, refreshResponse.total_count)
+                this.selectedChatId = currentSelectedId
+              }
+            } catch (error) {
+              console.warn('刷新对话列表失败:', error)
+            }
+          }
+        } else {
+          console.error('消息发送失败:', response.message)
+          this.toast.error(response.message || '发送消息失败')
+        }
+      } catch (error) {
+        console.error('发送消息异常:', error)
+        this.toast.error('发送消息失败，请检查网络连接')
+      } finally {
+        this.isLoading = false
+        console.log('消息发送流程结束')
       }
     },
     

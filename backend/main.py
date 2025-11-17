@@ -172,6 +172,8 @@ class DatabaseService:
         """创建新对话"""
         async with httpx.AsyncClient() as client:
             try:
+                logger.info(f"准备创建对话: user_id={user_id}, title={title}")
+                
                 chat_id = str(uuid.uuid4())
                 chat_data = {
                     'id': chat_id,
@@ -181,19 +183,26 @@ class DatabaseService:
                     'icon_color': 'text-blue-500'
                 }
                 
+                logger.info(f"发送对话数据到Supabase: {chat_data}")
+                
                 response = await client.post(
                     f"{self.base_url}/chats",
                     headers=self.headers,
                     json=chat_data
                 )
                 
+                logger.info(f"Supabase对话创建响应状态码: {response.status_code}")
+                logger.info(f"Supabase对话创建响应内容: {response.text}")
+                
                 if response.status_code == 201:
-                    return response.json()[0]
+                    result = response.json()[0]
+                    logger.info(f"对话创建成功: {result}")
+                    return result
                 else:
                     logger.error(f"创建对话失败，状态码: {response.status_code}, 响应: {response.text}")
                     return None
             except Exception as e:
-                logger.error(f"创建对话失败: {e}")
+                logger.error(f"创建对话失败: {e}", exc_info=True)
                 return None
     
     async def get_user_chats(self, user_id: str):
@@ -267,6 +276,8 @@ class DatabaseService:
         """创建消息"""
         async with httpx.AsyncClient() as client:
             try:
+                logger.info(f"准备保存消息: chat_id={chat_id}, role={role}, content长度={len(content)}, timestamp={timestamp}")
+                
                 message_id = str(uuid.uuid4())
                 message_data = {
                     'id': message_id,
@@ -276,20 +287,122 @@ class DatabaseService:
                     'timestamp': timestamp
                 }
                 
+                logger.info(f"发送消息数据到Supabase: {message_data}")
+                
                 response = await client.post(
                     f"{self.base_url}/messages",
                     headers=self.headers,
                     json=message_data
                 )
                 
+                logger.info(f"Supabase响应状态码: {response.status_code}")
+                logger.info(f"Supabase响应内容: {response.text}")
+                
                 if response.status_code == 201:
-                    return response.json()[0]
+                    result = response.json()[0]
+                    logger.info(f"消息保存成功: {result}")
+                    return result
                 else:
                     logger.error(f"创建消息失败，状态码: {response.status_code}, 响应: {response.text}")
                     return None
             except Exception as e:
-                logger.error(f"创建消息失败: {e}")
+                logger.error(f"创建消息失败: {e}", exc_info=True)
                 return None
+    
+    async def check_chat_exists(self, chat_id: str):
+        """检查对话是否存在"""
+        async with httpx.AsyncClient() as client:
+            try:
+                logger.info(f"检查对话是否存在: chat_id={chat_id}")
+                
+                response = await client.get(
+                    f"{self.base_url}/chats",
+                    headers=self.headers,
+                    params={
+                        "id": f"eq.{chat_id}",
+                        "select": "id"
+                    }
+                )
+                
+                logger.info(f"检查对话存在性响应状态码: {response.status_code}")
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    exists = len(result) > 0
+                    logger.info(f"对话存在性检查结果: {exists}")
+                    return exists
+                else:
+                    logger.error(f"检查对话存在性失败，状态码: {response.status_code}, 响应: {response.text}")
+                    return False
+            except Exception as e:
+                logger.error(f"检查对话存在性失败: {e}", exc_info=True)
+                return False
+    
+    async def create_chat_with_id(self, user_id: str, chat_id: str, title: str = "新对话"):
+        """使用指定ID创建新对话"""
+        async with httpx.AsyncClient() as client:
+            try:
+                logger.info(f"准备使用指定ID创建对话: user_id={user_id}, chat_id={chat_id}, title={title}")
+                
+                chat_data = {
+                    'id': chat_id,
+                    'user_id': user_id,
+                    'title': title,
+                    'color': 'bg-blue-100',
+                    'icon_color': 'text-blue-500'
+                }
+                
+                logger.info(f"发送对话数据到Supabase: {chat_data}")
+                
+                response = await client.post(
+                    f"{self.base_url}/chats",
+                    headers=self.headers,
+                    json=chat_data
+                )
+                
+                logger.info(f"Supabase对话创建响应状态码: {response.status_code}")
+                logger.info(f"Supabase对话创建响应内容: {response.text}")
+                
+                if response.status_code == 201:
+                    result = response.json()[0]
+                    logger.info(f"使用指定ID创建对话成功: {result}")
+                    return result
+                else:
+                    logger.error(f"使用指定ID创建对话失败，状态码: {response.status_code}, 响应: {response.text}")
+                    return None
+            except Exception as e:
+                logger.error(f"使用指定ID创建对话失败: {e}", exc_info=True)
+                return None
+    
+    async def update_chat_title(self, chat_id: str, title: str):
+        """更新对话标题"""
+        async with httpx.AsyncClient() as client:
+            try:
+                logger.info(f"准备更新对话标题: chat_id={chat_id}, title={title}")
+                
+                update_data = {
+                    'title': title
+                }
+                
+                response = await client.patch(
+                    f"{self.base_url}/chats",
+                    headers=self.headers,
+                    json=update_data,
+                    params={"id": f"eq.{chat_id}"}
+                )
+                
+                logger.info(f"Supabase对话标题更新响应状态码: {response.status_code}")
+                logger.info(f"Supabase对话标题更新响应内容: {response.text}")
+                
+                if response.status_code == 200 or response.status_code == 204:
+                    logger.info(f"更新对话标题成功: {chat_id}, title: {title}")
+                    return True
+                else:
+                    logger.error(f"更新对话标题失败，状态码: {response.status_code}, 响应: {response.text}")
+                    return False
+            except Exception as e:
+                logger.error(f"更新对话标题失败: {e}", exc_info=True)
+                return False
     
     async def get_chat_messages(self, chat_id: str):
         """获取对话的所有消息"""
@@ -310,6 +423,32 @@ class DatabaseService:
             except Exception as e:
                 logger.error(f"获取对话消息失败: {e}")
                 return []
+    
+    async def delete_chat(self, chat_id: str):
+        """删除对话及其所有消息"""
+        async with httpx.AsyncClient() as client:
+            try:
+                logger.info(f"准备删除对话: {chat_id}")
+                
+                # 直接删除对话，由于有ON DELETE CASCADE约束，消息会自动删除
+                chat_response = await client.delete(
+                    f"{self.base_url}/chats",
+                    headers=self.headers,
+                    params={"id": f"eq.{chat_id}"}
+                )
+                
+                logger.info(f"删除对话响应状态码: {chat_response.status_code}")
+                logger.info(f"删除对话响应内容: {chat_response.text}")
+                
+                if chat_response.status_code in [200, 204]:
+                    logger.info(f"成功删除对话: {chat_id}")
+                    return True
+                else:
+                    logger.error(f"删除对话失败，状态码: {chat_response.status_code}, 响应: {chat_response.text}")
+                    return False
+            except Exception as e:
+                logger.error(f"删除对话失败: {e}", exc_info=True)
+                return False
 
 # 全局数据库服务实例
 db_service = DatabaseService()
@@ -486,7 +625,10 @@ async def get_user_chats(user_id: str):
 async def send_message(chat_request: ChatRequest):
     """发送聊天消息"""
     try:
+        logger.info(f"收到消息发送请求: message='{chat_request.message}', chat_id={chat_request.chat_id}")
+        
         if not chat_request.message.strip():
+            logger.warning("消息内容为空")
             return ChatResponse(success=False, message="消息内容不能为空")
         
         # 生成聊天ID（如果未提供）
@@ -494,6 +636,7 @@ async def send_message(chat_request: ChatRequest):
         
         # 如果没有提供chat_id，需要先创建对话
         if not chat_id:
+            logger.info("未提供chat_id，需要创建新对话")
             # 从前端传递的数据中获取用户ID
             user_id = None
             if hasattr(chat_request, 'user_id') and chat_request.user_id:
@@ -502,30 +645,90 @@ async def send_message(chat_request: ChatRequest):
             # 如果前端没有传递用户ID，使用测试用户ID
             if not user_id:
                 user_id = "a2431f9f-f48e-4225-b59e-c1a16cb590f2"  # 测试用户ID
+                logger.info(f"使用测试用户ID: {user_id}")
             
-            new_chat = await db_service.create_chat(user_id, "新对话")
+            # 使用用户第一条消息作为对话标题（截取前20个字符）
+            title = chat_request.message[:20] + "..." if len(chat_request.message) > 20 else chat_request.message
+            logger.info(f"使用用户消息作为对话标题: {title}")
+            
+            new_chat = await db_service.create_chat(user_id, title)
             
             if not new_chat:
+                logger.error("创建对话失败")
                 return ChatResponse(success=False, message="创建对话失败")
             
             chat_id = new_chat['id']
+            logger.info(f"成功创建新对话，chat_id: {chat_id}, title: {title}")
+        else:
+            # 如果提供了chat_id，检查对话是否存在
+            logger.info(f"检查chat_id是否存在: {chat_id}")
+            chat_exists = await db_service.check_chat_exists(chat_id)
+            if not chat_exists:
+                logger.info(f"chat_id不存在，需要创建新对话: {chat_id}")
+                # 从前端传递的数据中获取用户ID
+                user_id = None
+                if hasattr(chat_request, 'user_id') and chat_request.user_id:
+                    user_id = chat_request.user_id
+                
+                # 如果前端没有传递用户ID，使用测试用户ID
+                if not user_id:
+                    user_id = "a2431f9f-f48e-4225-b59e-c1a16cb590f2"  # 测试用户ID
+                    logger.info(f"使用测试用户ID: {user_id}")
+                
+                # 使用用户第一条消息作为对话标题（截取前20个字符）
+                title = chat_request.message[:20] + "..." if len(chat_request.message) > 20 else chat_request.message
+                logger.info(f"使用用户消息作为对话标题: {title}")
+                
+                # 使用前端提供的chat_id创建对话
+                new_chat = await db_service.create_chat_with_id(user_id, chat_id, title)
+                
+                if not new_chat:
+                    logger.error(f"使用指定ID创建对话失败: {chat_id}")
+                    return ChatResponse(success=False, message="创建对话失败")
+                
+                logger.info(f"成功使用指定ID创建新对话: {chat_id}, title: {title}")
+            else:
+                logger.info(f"chat_id存在，直接使用: {chat_id}")
+                
+                # 检查这是否是该对话的第一条消息，如果是则更新标题
+                messages = await db_service.get_chat_messages(chat_id)
+                if not messages:  # 如果没有消息，说明这是第一条消息
+                    logger.info(f"检测到这是对话的第一条消息，更新标题")
+                    title = chat_request.message[:20] + "..." if len(chat_request.message) > 20 else chat_request.message
+                    logger.info(f"使用用户消息作为对话标题: {title}")
+                    
+                    # 更新对话标题
+                    update_success = await db_service.update_chat_title(chat_id, title)
+                    if update_success:
+                        logger.info(f"成功更新对话标题: {chat_id}, title: {title}")
+                    else:
+                        logger.warning(f"更新对话标题失败，但继续处理消息: {chat_id}")
         
         # 保存用户消息
+        logger.info(f"开始保存用户消息到chat_id: {chat_id}")
         user_message_timestamp = int(datetime.now().timestamp() * 1000)
         user_message = await db_service.save_message(chat_id, 'user', chat_request.message, user_message_timestamp)
         
         if not user_message:
+            logger.error(f"保存用户消息失败，chat_id: {chat_id}")
             return ChatResponse(success=False, message="消息保存失败")
+        
+        logger.info(f"成功保存用户消息，message_id: {user_message['id']}")
         
         # 模拟AI回复
         ai_response = f"我已经收到您的消息：'{chat_request.message}'。这是一个模拟回复，实际应用中会调用AI接口生成回复内容。"
+        logger.info(f"生成AI回复: {ai_response[:50]}...")
         
         # 保存AI回复
+        logger.info(f"开始保存AI回复到chat_id: {chat_id}")
         ai_message_timestamp = int(datetime.now().timestamp() * 1000)
         ai_message = await db_service.save_message(chat_id, 'assistant', ai_response, ai_message_timestamp)
         
         if not ai_message:
+            logger.error(f"保存AI回复失败，chat_id: {chat_id}")
             return ChatResponse(success=False, message="AI回复保存失败")
+        
+        logger.info(f"成功保存AI回复，message_id: {ai_message['id']}")
         
         response_message = Message(
             id=ai_message['id'],
@@ -534,14 +737,24 @@ async def send_message(chat_request: ChatRequest):
             timestamp=ai_message_timestamp
         )
         
-        return ChatResponse(
-            success=True,
-            response=response_message,
-            message="消息发送成功",
-            chat_id=chat_id  # 返回对话ID，前端可能需要使用
-        )
+        logger.info(f"消息发送成功，返回response，chat_id: {chat_id}")
+        
+        # 手动构建响应，确保timestamp格式正确
+        response_data = {
+            "success": True,
+            "response": {
+                "id": response_message.id,
+                "role": response_message.role,
+                "content": response_message.content,
+                "timestamp": response_message.timestamp
+            },
+            "message": "消息发送成功",
+            "chat_id": chat_id
+        }
+        
+        return response_data
     except Exception as e:
-        logger.error(f"发送消息失败: {e}")
+        logger.error(f"发送消息失败: {e}", exc_info=True)
         return ChatResponse(success=False, message="消息发送失败，请稍后重试")
 
 @app.get("/api/chat/history/{chat_id}")
@@ -564,6 +777,31 @@ async def get_chat_history(chat_id: str):
     except Exception as e:
         logger.error(f"获取聊天历史失败: {e}")
         return {"success": False, "message": "获取聊天历史失败", "messages": []}
+
+@app.delete("/api/chat/{chat_id}")
+async def delete_chat(chat_id: str):
+    """删除对话及其所有消息"""
+    try:
+        logger.info(f"收到删除对话请求: {chat_id}")
+        
+        # 检查对话是否存在
+        chat_exists = await db_service.check_chat_exists(chat_id)
+        if not chat_exists:
+            logger.warning(f"要删除的对话不存在: {chat_id}")
+            return {"success": False, "message": "对话不存在"}
+        
+        # 删除对话
+        success = await db_service.delete_chat(chat_id)
+        
+        if success:
+            logger.info(f"成功删除对话: {chat_id}")
+            return {"success": True, "message": "对话删除成功"}
+        else:
+            logger.error(f"删除对话失败: {chat_id}")
+            return {"success": False, "message": "删除对话失败"}
+    except Exception as e:
+        logger.error(f"删除对话失败: {e}", exc_info=True)
+        return {"success": False, "message": "删除对话失败，请稍后重试"}
 
 if __name__ == "__main__":
     import uvicorn

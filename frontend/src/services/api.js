@@ -69,7 +69,20 @@ export const authAPI = {
 export const chatAPI = {
   // 发送消息
   sendMessage: (messageData) => {
-    return api.post('/chat/send', messageData);
+    console.log('API sendMessage 发送请求:', messageData);
+    return api.post('/chat/send', messageData)
+      .then(response => {
+        console.log('API sendMessage 收到响应:', response);
+        return response;
+      })
+      .catch(error => {
+        console.error('API sendMessage 错误:', error);
+        if (error.response) {
+          console.error('错误响应数据:', error.response.data);
+          console.error('错误状态码:', error.response.status);
+        }
+        throw error;
+      });
   },
   
   // 获取聊天历史
